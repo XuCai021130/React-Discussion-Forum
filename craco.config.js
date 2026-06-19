@@ -5,5 +5,13 @@ module.exports = {
     alias: {
       '@': path.resolve(__dirname, 'src')
     }
+  },
+  devServer: {
+    proxy: {
+      '/v1_0': {
+        target: 'https://geek.itheima.net',
+        changeOrigin: true
+      }
+    }
   }
 }

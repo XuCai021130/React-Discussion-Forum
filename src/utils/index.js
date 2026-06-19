@@ -1,3 +1,9 @@
-import { request } from "node_modules/axios/index.cjs";
+import { request } from "./request"
+import { getToken, setToken, removeToken } from "./token"
 
-export { request }
+export {
+  request,
+  getToken,
+  setToken,
+  removeToken
+}
