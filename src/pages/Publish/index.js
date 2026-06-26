@@ -11,23 +11,37 @@ import {
   message
 } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import './index.scss'
 import ReactQuill from 'react-quill-new'
 import 'react-quill-new/dist/quill.snow.css'
-import { useState } from 'react'
-import { createArticleAPI } from '@/apis/article'
+import { useState, useEffect } from 'react'
+import { createArticleAPI, getArticleByIdAPI, updateArticleAPI } from '@/apis/article'
 import { useChannels } from '@/hooks/useChannels'
+import { type } from '@testing-library/user-event/dist/type'
 
 
 const { Option } = Select
 
 const Publish = () => {
+  const navigate = useNavigate()
+  const [ searchParams ] = useSearchParams()
+  const articleId = searchParams.get('id')
+  const [form] = Form.useForm()
   const [imageList, setImageList] = useState([])
   const [imageType, setImageType] = useState(1)
   const { channelList } = useChannels()
   const onFinish = (formValue) => {
     const { channel_id, content, title } = formValue
+    const formatUrl = (list) => {
+      return list.map(item => {
+        if (item.response) {
+          return item.response.data.url
+        } else {
+          return item.url
+        }
+      })
+    }
     if (imageType !== imageList.length) return message.warning('number of images doesnt match expectation!')
     const params = {
       channel_id,
@@ -36,10 +50,16 @@ const Publish = () => {
       type: imageType,
       cover: {
         type: imageType,
-        images: imageList.map(item => item.response.data.url)
+        images: formatUrl(imageList)
       }
     }
-    createArticleAPI(params)
+    if (articleId) {
+      updateArticleAPI({...params, id: articleId})
+      navigate('/article')
+    } else {
+      createArticleAPI(params)
+    }
+
   }
   const onUploadChange = (params) => {
     setImageList(params.fileList)
@@ -47,13 +67,30 @@ const Publish = () => {
   const onTypeChange = (obj) => {
     setImageType(obj.target.value)
   }
+  useEffect(() => {
+    async function getArticle () {
+      const res = await getArticleByIdAPI(articleId)
+      const data = res.data
+      const { cover } = data
+      form.setFieldsValue({
+        ...data,
+        type: cover.type
+      })
+      setImageType(cover.type)
+      setImageList(cover.images.map(url => ({ url }))) 
+    }
+    if (articleId) {
+      // 拉取数据回显
+      getArticle()
+    }
+  }, [articleId, form])
   return (
     <div className="publish">
       <Card
         title={
           <Breadcrumb items={[
             { title: <Link to={'/'}>首页</Link> },
-            { title: '发布文章' },
+            { title: `${articleId ? '编辑' : '发布'}文章` },
           ]}
           />
         }
@@ -63,6 +100,7 @@ const Publish = () => {
           wrapperCol={{ span: 16 }}
           initialValues={{ type: 1 }}
           onFinish={onFinish}
+          form={form}
         >
           <Form.Item
             label="标题"
@@ -102,6 +140,7 @@ const Publish = () => {
                 onChange={onUploadChange}
                 maxCount={imageType}
                 multiple={imageType > 1}
+                fileList={imageList}
               >
                 <div style={{ marginTop: 8 }}>
                   <PlusOutlined />

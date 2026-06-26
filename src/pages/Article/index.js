@@ -1,18 +1,27 @@
-import { Link } from 'react-router-dom'
-import { Card, Breadcrumb, Form, Button, Radio, DatePicker, Select } from 'antd'
+import { Link, useNavigate } from 'react-router-dom'
+import { Card, Breadcrumb, Form, Button, Radio, DatePicker, Select, Popconfirm } from 'antd'
 import locale from 'antd/es/date-picker/locale/zh_CN'
 import { Table, Tag, Space } from 'antd'
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import img404 from '@/assets/error.png'
 import { useChannels } from '@/hooks/useChannels'
 import { useEffect, useState } from 'react'
-import { getArticlesAPI } from '@/apis/article'
+import { delArticleAPI, getArticlesAPI } from '@/apis/article'
 
 const { Option } = Select
 const { RangePicker } = DatePicker
 
 const Article = () => {
+  const navigate = useNavigate()
   const { channelList } = useChannels()
+  const status = {
+    1: <Tag color="warning">待审核</Tag>,
+    2: <Tag color="green">审核通过</Tag>
+  }
+  const delArticle = async (data) => {
+    await delArticleAPI(data.id)
+    setReqData({ ...reqData })
+  }
   const columns = [
     {
       title: '封面',
@@ -30,7 +39,7 @@ const Article = () => {
     {
       title: '状态',
       dataIndex: 'status',
-      render: data => <Tag color="green">审核通过</Tag>
+      render: data => status[data]
     },
     {
       title: '发布时间',
@@ -53,13 +62,21 @@ const Article = () => {
       render: data => {
         return (
           <Space size="middle">
-            <Button type="primary" shape="circle" icon={<EditOutlined />} />
-            <Button
-              type="primary"
-              danger
-              shape="circle"
-              icon={<DeleteOutlined />}
-            />
+            <Popconfirm
+              title="确认删除该条文章吗?"
+              onConfirm={() => delArticle(data)}
+              okText="确认"
+              cancelText="取消"
+            >
+              <Button type="primary" shape="circle" icon={<EditOutlined />} 
+              onClick={() => navigate(`/publish?id=${data.id}`)}/>
+              <Button
+                type="primary"
+                danger
+                shape="circle"
+                icon={<DeleteOutlined />}
+              />
+            </Popconfirm>
           </Space>
         )
       }
@@ -67,14 +84,43 @@ const Article = () => {
   ]
   const [count, setCount] = useState(0)
   const [articles, setArticles] = useState([])
+  const [reqData, setReqData] = useState({
+    status: '',
+    channel_id: '',
+    begin_pubdate: '',
+    end_pubdate: '',
+    page: 1,
+    per_page: 5
+  })
   useEffect(() => {
-    async function getArticles(params) {
-      const res = await getArticlesAPI(params)
+    async function getArticles() {
+      const res = await getArticlesAPI(reqData)
       setArticles(res.data.results)
       setCount(res.data.total_count)
     }
     getArticles()
-  }, [])
+  }, [reqData])
+  
+  const onFinish = (formVals) => {
+    const { channel_id, date, status } = formVals
+    console.log(formVals);
+    setReqData({
+      ...reqData,
+      channel_id: channel_id,
+      status: status,
+      begin_pubdate: date[0].format('YYYY-MM-DD'),
+      end_pubdate: date[1].format('YYYY-MM-DD')
+    })
+  }
+
+  const pageChange = (page) => {
+      // 拿到当前页参数 修改params 引起接口更新
+      setReqData({
+        ...reqData,
+        page
+      })
+  }
+
   return (
     <div>
       <Card
@@ -86,7 +132,7 @@ const Article = () => {
         }
         style={{ marginBottom: 20 }}
       >
-        <Form initialValues={{ status: '' }}>
+        <Form initialValues={{ status: '' }} onFinish={onFinish}>
           <Form.Item label="状态" name="status">
             <Radio.Group>
               <Radio value={''}>全部</Radio>
@@ -122,7 +168,13 @@ const Article = () => {
         </Form>
       </Card>
       <Card title={`根据筛选条件共查询到 ${count} 条结果：`}>
-        <Table rowKey="id" columns={columns} dataSource={articles} />
+        <Table rowKey="id" columns={columns} dataSource={articles}
+        pagination={{
+          current: reqData.page,
+          pageSize: reqData.per_page,
+          onChange: pageChange,
+          total: count
+        }}/>
       </Card>
     </div>
   )

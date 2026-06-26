@@ -24,3 +24,25 @@ export async function getArticlesAPI(params) {
     params
   })
 }
+
+export async function delArticleAPI(id) {
+  return request({
+    url: `/mp/articles/${id}`,
+    method: 'DELETE'
+  })
+}
+
+export async function getArticleByIdAPI(id) {
+  return request({
+    url: `/mp/articles/${id}`
+  })
+}
+
+export async function updateArticleAPI(data, id) {
+  await request({
+    url: `/mp/articles/${data.id}?draft=false`,
+    method: 'PUT',
+    data
+  })
+  message.success('更新文章成功')
+}
